@@ -4,13 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port=3000 --host=0.0.0.0",
-    "server": "tsx server/index.ts",
-    "db:seed": "tsx -e \"import('./server/seed').then(s => s.seedDatabase({force:true}).then(r => { console.table(r); process.exit(0) }))\"",
-    "build": "vite build",
-    "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "dev": "vite --port=3000 --host=0.0.0.0 frontend",
+    "server": "tsx backend/index.ts",
+    "db:seed": "tsx -e \"import('./backend/seed').then(s => s.seedDatabase({force:true}).then(r => { console.table(r); process.exit(0) }))\"",
+    "build": "vite build frontend",
+    "preview": "vite preview frontend",
+    "clean": "rm -rf frontend/dist",
+    "lint": "tsc --noEmit -p frontend/tsconfig.json"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

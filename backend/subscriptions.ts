@@ -301,6 +301,12 @@ export async function confirmSubscriptionPayment(params: {
 
   await upsertItem(COLLECTIONS.SUBSCRIPTION_PAYMENTS, record as unknown as Record<string, unknown>);
 
+  // If this (subscriptionId, billingPeriod) was already confirmed, do not roll
+  // the subscription forward a second time (idempotency).
+  if (existing.find((p) => p.subscriptionId === params.subscriptionId && p.billingPeriod === params.billingPeriod)?.id) {
+    return { subscription, payment: record };
+  }
+
   // Roll subscription forward
   if (params.billingPeriod === 'SETUP') {
     subscription.status = 'TRIAL';

@@ -14,7 +14,7 @@ import {
   INITIAL_CONTRACTS,
   INITIAL_STAFF_SHIFTS,
   INITIAL_DEBTORS,
-} from '../src/data/initialData';
+} from '../frontend/src/data/initialData';
 
 export interface CollectionSeed {
   name: string;
