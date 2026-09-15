@@ -8,7 +8,7 @@
  * Credentials are never hard-coded — they come from .env only.
  */
 
-import { requestToPay, getRequestToPayStatus, normalizeMtnMsisdn } from '../mtnMomo';
+import { requestToPay, getRequestToPayStatus, normalizeMtnMsisdn } from './mtnMomo';
 
 export type PaymentProviderId = 'MTN_MOMO' | 'AIRTEL_MONEY';
 

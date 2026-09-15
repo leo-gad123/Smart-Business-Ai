@@ -21,7 +21,6 @@ import {
   formatDate,
   planForWorkerCount,
   LOCAL_PLANS,
-  type SubscriptionPlan,
 } from '../../../services/subscriptionApi';
 import { MtnMomoPaymentModal } from '../../payment/MtnMomoPaymentModal';
 
@@ -342,7 +341,7 @@ ${formatRwf(newPlan.monthlyFee)}/month.`);
               ) : (
                 <>
                   <div className="grid grid-cols-2 gap-2">
-                    {Object.values(LOCAL_PLANS).map((plan) => (
+                    {(Object.values(LOCAL_PLANS) as Array<{ planType: string; label: string; monthlyFee: number; setupFee: number }>).map((plan) => (
                       <button
                         key={plan.planType}
                         type="button"
