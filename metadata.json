@@ -1,0 +1,6 @@
+{
+  "name": "SmartStock Rwanda - Anti-Theft Retail POS & Management",
+  "description": "Anti-Theft Retail Management & POS Platform for Supermarkets and Shops in Rwanda. Featuring blind drawer cash reconciliation, automated staff SMS restock alerts, RRA 18% VAT e-tax invoicing, and offline-first edge POS.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
