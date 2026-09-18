@@ -466,8 +466,8 @@ app.get('/api/subscriptions/overview', async (_req: Request, res: Response) => {
   }
 });
 
-// Manual billing cycle trigger (admin)
-app.post('/api/billing/run', async (_req: Request, res: Response) => {
+// Manual billing cycle trigger (admin, or Vercel Cron which uses GET)
+app.all('/api/billing/run', async (_req: Request, res: Response) => {
   try {
     const result = await runBillingCycle();
     res.json({ ok: true, result });
@@ -500,7 +500,7 @@ async function findUserByEmail(email?: string) {
 // "Cashier" maps to the stored 'employee' role in the database.
 const LOGIN_ROLES = ['owner', 'employee', 'cashier'] as const;
 type LoginRole = (typeof LOGIN_ROLES)[number];
-const toDbRole = (role: LoginRole): string => (role === 'cashier' ? 'employee' : role);
+const toDbRole = (role: LoginRole): 'owner' | 'employee' => (role === 'cashier' ? 'employee' : role);
 
 app.post('/api/otp/send', async (req: Request, res: Response) => {
   try {
@@ -596,7 +596,7 @@ app.post('/api/auth/superadmin/login', async (req: Request, res: Response) => {
     if (!admin || admin.systemPassword !== password) {
       return res.status(401).json({ ok: false, message: 'Invalid credentials.' });
     }
-    const result = await sendOTP({ email: admin.email, role: 'superadmin', userName: admin.name });
+    const result = await sendOTP({ email: String(admin.email), role: 'superadmin', userName: String(admin.name || '') });
     if (!result.ok) {
       return res.status(429).json(result);
     }
@@ -617,7 +617,7 @@ app.post('/api/auth/superadmin/otp/send', async (req: Request, res: Response) =>
     if (!admin) {
       return res.status(404).json({ ok: false, message: 'No registered platform admin account matches that email.' });
     }
-    const result = await sendOTP({ email: admin.email, role: 'superadmin', userName: admin.name });
+    const result = await sendOTP({ email: String(admin.email), role: 'superadmin', userName: String(admin.name || '') });
     if (!result.ok) {
       return res.status(429).json(result);
     }
@@ -642,7 +642,7 @@ app.post('/api/auth/superadmin/otp/verify', async (req: Request, res: Response) 
     if (!admin) {
       return res.status(404).json({ ok: false, message: 'Admin account not found.' });
     }
-    const { token, session } = createSuperAdminSession(admin.email);
+    const { token, session } = createSuperAdminSession(String(admin.email));
     console.log(`[SmartStock Auth] Superadmin OTP verified, session created for ${admin.email}, expires ${new Date(session.expiresAt).toISOString()}`);
     res.json({ ok: true, message: 'OTP verified. Session created.', token, user: sanitizeUser(admin) });
   } catch (err) {
@@ -699,17 +699,24 @@ function mongooseState(): string {
 
 const PORT = Number(process.env.PORT) || 4000;
 
-// Start the API immediately so OTP/auth endpoints are always available,
-// then connect & seed Mongo in the background (sendOTP does not depend on the DB).
-app.listen(PORT, () => {
-  console.log(`[SmartStock API] Listening on http://localhost:${PORT}`);
-});
+const IS_SERVERLESS = process.env.VERCEL === '1' || process.env.VERCEL_ENV === 'production';
 
-connectMongo()
-  .then(() => ensureSubscriptionIndexes())
-  .then(() => seedDatabase({ force: false }))
-  .then(() => {
-    console.log('[SmartStock API] MongoDB connected & seeded.');
-    startBillingScheduler();
-  })
-  .catch((err) => console.error('[SmartStock API] MongoDB unavailable (API continues on OTP auth):', err));
+export default app;
+
+// Local / self-hosted runtime: bind the HTTP server and bootstrap Mongo.
+// On Vercel (serverless) the app is imported by api/index.ts instead,
+// so startup work is skipped to avoid bind errors in a serverless container.
+if (!IS_SERVERLESS) {
+  app.listen(PORT, () => {
+    console.log(`[SmartStock API] Listening on http://localhost:${PORT}`);
+  });
+
+  connectMongo()
+    .then(() => ensureSubscriptionIndexes())
+    .then(() => seedDatabase({ force: false }))
+    .then(() => {
+      console.log('[SmartStock API] MongoDB connected & seeded.');
+      startBillingScheduler();
+    })
+    .catch((err) => console.error('[SmartStock API] MongoDB unavailable (API continues on OTP auth):', err));
+}

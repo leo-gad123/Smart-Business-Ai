@@ -7,7 +7,8 @@
     "dev": "vite --port=3000 --host=0.0.0.0 frontend",
     "server": "tsx backend/index.ts",
     "db:seed": "tsx -e \"import('./backend/seed').then(s => s.seedDatabase({force:true}).then(r => { console.table(r); process.exit(0) }))\"",
-    "build": "vite build frontend",
+    "build": "vite build frontend && npm run build:api",
+    "build:api": "esbuild backend/serverless.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=api/index.js",
     "preview": "vite preview frontend",
     "clean": "rm -rf frontend/dist",
     "lint": "tsc --noEmit -p frontend/tsconfig.json"

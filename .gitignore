@@ -6,3 +6,8 @@ coverage/
 *.log
 .env*
 !.env
+
+.vercel
+.env*
+
+api/index.js

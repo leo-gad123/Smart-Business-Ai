@@ -1,0 +1,9 @@
+node_modules
+frontend/dist
+dist
+.git
+.vercel
+*.log
+.env
+.env.example
+backend/server.log
