@@ -12,7 +12,8 @@ import {
   Phone,
   Receipt,
   Copy,
-  Loader2
+  Loader2,
+  Share2
 } from 'lucide-react';
 import type { jsPDF as JsPDFCtor } from 'jspdf';
 import { SaleTransaction } from '../../types';
@@ -23,7 +24,7 @@ import { SMSService } from '../../services/smsService';
 let jsPDFModulePromise: Promise<typeof JsPDFCtor> | null = null;
 function loadJsPDF(): Promise<typeof JsPDFCtor> {
   if (!jsPDFModulePromise) {
-    jsPDFModulePromise = import('jspdf').then(m => m.jsPDF);
+    jsPDFModulePromise = import('jspdf').then((m: any) => m.jsPDF || m.default);
   }
   return jsPDFModulePromise;
 }
@@ -211,11 +212,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ sale, onClose, onNex
   const [whatsappSent, setWhatsappSent] = useState<boolean>(false);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
+  const [isSharingPdf, setIsSharingPdf] = useState<boolean>(false);
   const [pdfReady, setPdfReady] = useState<boolean>(false);
   const [pdfError, setPdfError] = useState<boolean>(false);
   const [pdfErrorMessage, setPdfErrorMessage] = useState<string>('');
   const [showQrExpanded, setShowQrExpanded] = useState<boolean>(false);
   const pdfDocRef = useRef<any>(null);
+  const pdfBlobRef = useRef<Blob | null>(null);
   const pdfWarmedForRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -227,25 +230,29 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ sale, onClose, onNex
   // Reset PDF state whenever a different sale receipt is shown
   useEffect(() => {
     pdfDocRef.current = null;
+    pdfBlobRef.current = null;
     setPdfReady(false);
     setPdfError(false);
     setPdfErrorMessage('');
     setIsGeneratingPdf(false);
+    setIsSharingPdf(false);
   }, [sale?.receiptNumber]);
 
   // Warm the PDF cache in the background (fast, NO auto-download) so the first
-  // "Download PDF" click is instant and no auto-spawned file can be blank/black.
+  // "Download PDF" / "Share PDF" action is instant and no auto-spawned file
+  // can be blank/black.
   useEffect(() => {
     if (!sale || pdfDocRef.current || sale.receiptNumber === pdfWarmedForRef.current) return;
     pdfWarmedForRef.current = sale.receiptNumber;
     generateReceiptPdf(sale)
       .then(doc => {
         pdfDocRef.current = doc;
+        pdfBlobRef.current = doc.output('blob');
         setPdfReady(true);
         setPdfError(false);
       })
       .catch(() => {
-        // Keep the Download button functional; it will regenerate on click.
+        // Keep the Download/Share buttons functional; they will regenerate on click.
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sale?.receiptNumber]);
@@ -335,7 +342,26 @@ Murakoze cyane kubana natwe! / Thank you for shopping with us!`;
     }
   };
 
-  // Action 2: Download PDF Receipt (reuses the pre-warmed jsPDF doc instantly)
+  // Generate once (or reuse the pre-warmed doc/blob) — single source for
+  // download AND share so the EBM PDF never needs to be built twice.
+  const ensurePdf = async (): Promise<{ doc: any; blob: Blob }> => {
+    if (pdfDocRef.current && pdfBlobRef.current) {
+      return { doc: pdfDocRef.current, blob: pdfBlobRef.current };
+    }
+    const doc = await generateReceiptPdf(sale);
+    const blob = doc.output('blob');
+    pdfDocRef.current = doc;
+    pdfBlobRef.current = blob;
+    return { doc, blob };
+  };
+
+  const finishWithError = (err: unknown) => {
+    console.error('EBM PDF generation failed:', err);
+    setPdfError(true);
+    setPdfErrorMessage(err instanceof Error ? err.message : String(err));
+  };
+
+  // Action 2: Download PDF Receipt (uses the pre-warmed jsPDF doc instantly)
   const handleDownloadPdf = async () => {
     if (isGeneratingPdf) return;
 
@@ -355,22 +381,92 @@ Murakoze cyane kubana natwe! / Thank you for shopping with us!`;
     // Safety timeout: the generating state must ALWAYS end, never an infinite spinner
     const safetyTimer = window.setTimeout(() => {
       setIsGeneratingPdf(false);
-    }, 10000);
+    }, 12000);
 
     try {
-      const doc = await generateReceiptPdf(sale);
-      pdfDocRef.current = doc;
+      const { doc } = await ensurePdf();
       doc.save(downloadName);
       setPdfReady(true);
       setPdfError(false);
     } catch (err) {
-      console.error('PDF generation failed:', err);
-      setPdfError(true);
-      setPdfErrorMessage(err instanceof Error ? err.message : String(err));
+      finishWithError(err);
     } finally {
       window.clearTimeout(safetyTimer);
       setIsGeneratingPdf(false);
     }
+  };
+
+  // Action 2b: Share the EBM PDF file (native share sheet with the real PDF
+  // attached — works in WhatsApp, Gmail, etc.). Falls back to a download when
+  // the device has no sharing support.
+  const handleSharePdf = async () => {
+    if (isGeneratingPdf) return;
+
+    const fileName = `SmartStock-Invoice-${sale.receiptNumber}.pdf`;
+
+    if (pdfDocRef.current && !pdfBlobRef.current) {
+      pdfBlobRef.current = pdfDocRef.current.output('blob');
+    }
+    if (pdfDocRef.current && pdfBlobRef.current) {
+      setIsSharingPdf(true);
+      try {
+        await tryShareOrDownload(pdfBlobRef.current, fileName);
+        setPdfReady(true);
+        setIsSharingPdf(false);
+        return;
+      } catch (err) {
+        setIsSharingPdf(false);
+        if ((err as any)?.name !== 'AbortError') {
+          finishWithError(err);
+        }
+        return;
+      }
+    }
+
+    setIsGeneratingPdf(true);
+    setPdfError(false);
+    const safetyTimer = window.setTimeout(() => {
+      setIsGeneratingPdf(false);
+    }, 12000);
+
+    try {
+      const { blob } = await ensurePdf();
+      setIsSharingPdf(true);
+      await tryShareOrDownload(blob, fileName);
+      setPdfReady(true);
+      setPdfError(false);
+    } catch (err) {
+      if ((err as any)?.name !== 'AbortError') {
+        finishWithError(err);
+      }
+    } finally {
+      setIsSharingPdf(false);
+      window.clearTimeout(safetyTimer);
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  const tryShareOrDownload = async (blob: Blob, fileName: string): Promise<void> => {
+    const file = new File([blob], fileName, { type: 'application/pdf' });
+    const nav = navigator as Navigator & {
+      canShare?: (data: { files: File[] }) => boolean;
+      share?: (data: { files: File[]; title: string; text: string }) => Promise<void>;
+    };
+    if (nav.canShare && nav.canShare({ files: [file] })) {
+      try {
+        await nav.share({
+          files: [file],
+          title: fileName,
+          text: `RRA EBM Certified Invoice ${sale.receiptNumber} — ${sale.totalRwf.toLocaleString()} RWF`,
+        });
+        return;
+      } catch (err) {
+        // User cancelled the share sheet (AbortError) — fall through quietly.
+        if ((err as any)?.name === 'AbortError') throw err;
+      }
+    }
+    // Fallback: trigger the download instead of sharing
+    pdfDocRef.current?.save(fileName);
   };
 
   // Action 3: Print Thermal Receipt (Triggers standard window.print formatted for 80mm roll)
@@ -664,8 +760,8 @@ Murakoze cyane kubana natwe! / Thank you for shopping with us!`;
             </div>
           </div>
 
-          {/* Bottom Responsive Action Buttons Grid: PDF, Thermal Print, Next Sale */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+          {/* Bottom Responsive Action Buttons Grid: PDF, Share PDF, Thermal Print, Next Sale */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
             {/* Action 2: "Download PDF Invoice" (Emerald File-Down Icon) */}
             <button
               id="btn-download-pdf-receipt"
@@ -675,7 +771,19 @@ Murakoze cyane kubana natwe! / Thank you for shopping with us!`;
               className="py-3 px-3 bg-emerald-500/10 hover:bg-emerald-500/20 active:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 hover:text-emerald-200 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 cursor-pointer"
             >
               <FileDown className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>{isGeneratingPdf ? 'Irikurema Facture ya PDF...' : pdfReady ? 'Download PDF' : 'Download PDF Invoice'}</span>
+              <span>{isGeneratingPdf ? 'Generating...' : pdfReady ? 'Download PDF' : 'Download PDF'}</span>
+            </button>
+
+            {/* Action 2b: "Share EBM PDF" (Shares the real PDF file via share sheet) */}
+            <button
+              id="btn-share-pdf-receipt"
+              type="button"
+              onClick={handleSharePdf}
+              disabled={isGeneratingPdf}
+              className="py-3 px-3 bg-sky-500/10 hover:bg-sky-500/20 active:bg-sky-500/30 border border-sky-500/40 text-sky-300 hover:text-sky-200 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50 cursor-pointer"
+            >
+              <Share2 className="w-4 h-4 text-sky-400 shrink-0" />
+              <span>Share PDF</span>
             </button>
 
             {/* Action 3: "Print Thermal Receipt" (Gray Printer Icon) */}
@@ -683,7 +791,7 @@ Murakoze cyane kubana natwe! / Thank you for shopping with us!`;
               id="btn-print-thermal-receipt"
               type="button"
               onClick={handlePrintThermal}
-              className="py-3 px-3 bg-neutral-800 hover:bg-neutral-750 active:bg-neutral-700 border border-neutral-700 text-neutral-200 hover:text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-sm"
+              className="py-3 px-3 bg-neutral-800 hover:bg-neutral-750 active:bg-neutral-700 border border-neutral-700 text-neutral-200 hover:text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-sm col-span-2 sm:col-span-1"
             >
               <Printer className="w-4 h-4 text-neutral-400 shrink-0" />
               <span>Print Thermal Receipt</span>
@@ -694,7 +802,7 @@ Murakoze cyane kubana natwe! / Thank you for shopping with us!`;
               id="btn-next-sale-transaction"
               type="button"
               onClick={handleNextSale}
-              className="py-3 px-3 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-neutral-950 font-extrabold text-xs sm:text-sm rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50"
+              className="py-3 px-3 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-neutral-950 font-extrabold text-xs sm:text-sm rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 col-span-2 sm:col-span-3"
             >
               <ArrowRight className="w-4 h-4 text-neutral-950 shrink-0" />
               <span>Next Sale / New Transaction</span>
@@ -715,11 +823,29 @@ Murakoze cyane kubana natwe! / Thank you for shopping with us!`;
             </p>
           )}
           {pdfError && !isGeneratingPdf && (
-            <p className="text-center text-[11px] text-red-400">
-              Unable to generate PDF. Please try again.
-              {pdfErrorMessage && (
-                <span className="block text-neutral-400 mt-1">Detail: {pdfErrorMessage}</span>
-              )}
+            <div className="text-center text-[11px] text-red-400 space-y-2">
+              <p>
+                Unable to generate PDF. Please try again.
+                {pdfErrorMessage && (
+                  <span className="block text-neutral-400 mt-1">Detail: {pdfErrorMessage}</span>
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setPdfError(false);
+                  handleDownloadPdf();
+                }}
+                className="px-3 py-1.5 bg-rose-500/15 border border-rose-500/40 text-rose-300 font-bold rounded-lg text-[11px] hover:bg-rose-500/25 transition cursor-pointer"
+              >
+                Retry Download
+              </button>
+            </div>
+          )}
+          {isSharingPdf && (
+            <p className="text-center text-[11px] text-sky-400 flex items-center justify-center gap-1.5">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>Sharing EBM PDF...</span>
             </p>
           )}
         </div>
