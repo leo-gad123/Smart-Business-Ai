@@ -1,1 +1,49 @@
 @import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Global mobile / cross-device hardening
+--------------------------------------------------------------------------- */
+html {
+  /* Prevent iOS Safari from bumping font size when rotating or focusing inputs */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Friendlier tap feedback for touch devices */
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  /* The app is a single-page application; horizontal scrollers (tables,
+     category pill strips) are contained to their own components via
+     `overflow-x-auto`, so the document itself must never pan sideways. */
+  overflow-x: hidden;
+}
+
+/*
+   Dynamic viewport height: on mobile the browser toolbar shrinks the visible
+   area, so `100vh` overflows underneath it and can clip fixed modals,
+   footers and full-height views. Where the browser supports it, prefer the
+   dynamic unit so full-screen UI always fits the visible viewport.
+*/
+@supports (height: 100dvh) {
+  .min-h-screen {
+    min-height: 100dvh;
+  }
+}
+
+/* Hide scrollbars on pill strips / tables while keeping them scrollable */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Prevent double-tap zoom delays for interactive controls on touch devices */
+@media (max-width: 640px) {
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+}

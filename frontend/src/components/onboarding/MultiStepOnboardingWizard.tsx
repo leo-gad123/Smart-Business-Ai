@@ -341,13 +341,13 @@ export const MultiStepOnboardingWizard: React.FC<MultiStepOnboardingWizardProps>
       <div
         className={`${
           isModal
-            ? 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto'
-            : "w-full min-h-screen py-8 px-4 flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=1920&auto=format&fit=crop')] bg-cover bg-center bg-fixed relative"
+            ? 'fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-6 overflow-y-auto'
+            : "w-full min-h-screen py-8 px-4 flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=1920&auto=format&fit=crop')] bg-cover bg-center lg:bg-fixed relative"
         }`}
       >
         {isModal ? (
           <div
-            className="fixed inset-0 bg-[url('https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=1920&auto=format&fit=crop')] bg-cover bg-center bg-fixed"
+            className="fixed inset-0 bg-[url('https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=1920&auto=format&fit=crop')] bg-cover bg-center lg:bg-fixed"
             onClick={onClose}
           >
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" />
@@ -378,14 +378,14 @@ export const MultiStepOnboardingWizard: React.FC<MultiStepOnboardingWizardProps>
       id="smartstock-onboarding-wizard"
       className={`${
         isModal
-          ? 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto'
-          : "w-full min-h-screen py-8 px-4 flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=1920&auto=format&fit=crop')] bg-cover bg-center bg-fixed relative"
+          ? 'fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-6 overflow-y-auto'
+          : "w-full min-h-screen py-8 px-4 flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=1920&auto=format&fit=crop')] bg-cover bg-center lg:bg-fixed relative"
       }`}
     >
       {/* Supermarket store interior background with warm blur overlay matching Photo 2 */}
       {isModal ? (
         <div
-          className="fixed inset-0 bg-[url('https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=1920&auto=format&fit=crop')] bg-cover bg-center bg-fixed"
+          className="fixed inset-0 bg-[url('https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=1920&auto=format&fit=crop')] bg-cover bg-center lg:bg-fixed"
           onClick={onClose}
         >
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" />

@@ -431,7 +431,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 
       {/* Add / Edit Product Modal */}
       {isProductModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 p-4 backdrop-blur-xs overflow-y-auto">
           <div className="bg-neutral-900 border border-neutral-750 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between p-4 border-b border-neutral-800 bg-neutral-950">
               <h3 className="font-bold text-sm text-white">

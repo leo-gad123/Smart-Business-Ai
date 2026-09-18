@@ -933,7 +933,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onRegister
               isModal={true}
             />
           ) : (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overflow-y-auto">
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overflow-y-auto">
               <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-150">
                 {/* Modal Header */}
                   <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50">

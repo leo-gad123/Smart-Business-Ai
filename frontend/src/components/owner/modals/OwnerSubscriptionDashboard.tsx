@@ -283,7 +283,7 @@ ${formatRwf(newPlan.monthlyFee)}/month.`);
 
       {/* Payment History Modal */}
       {showPayments && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
           <div className="w-full max-w-lg bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -322,7 +322,7 @@ ${formatRwf(newPlan.monthlyFee)}/month.`);
 
       {/* Change Plan Modal */}
       {showChangePlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
           <div className="w-full max-w-md bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -399,7 +399,7 @@ ${formatRwf(newPlan.monthlyFee)}/month.`);
 
       {/* Cancel Confirm Modal */}
       {showCancelConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
           <div className="w-full max-w-md bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2 text-rose-400">

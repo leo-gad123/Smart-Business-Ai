@@ -109,7 +109,7 @@ export const BlindReconciliationModal: React.FC<BlindReconciliationModalProps> =
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-xs overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-xs overflow-y-auto">
       <div className="bg-neutral-900 border border-neutral-750 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden my-4">
         {/* Header */}
         <div className="p-4 bg-gradient-to-r from-red-950/80 to-neutral-900 border-b border-red-900/40 flex items-center justify-between">

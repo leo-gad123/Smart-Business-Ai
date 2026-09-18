@@ -686,7 +686,7 @@ export const QuickSellView: React.FC<QuickSellViewProps> = ({
 
       {/* Checkout Payment Modal */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 p-4 backdrop-blur-xs overflow-y-auto">
           <div className="relative bg-neutral-900 border border-neutral-750 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
             {/* PHOTO 3: Temporary loading state overlay when generating PDF receipt */}
             {isGeneratingPdfReceipt && (
@@ -970,7 +970,7 @@ export const QuickSellView: React.FC<QuickSellViewProps> = ({
 
       {/* Void Cart Confirmation Modal (Anti-Theft reason requirement) */}
       {voidConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 p-4 backdrop-blur-xs overflow-y-auto">
           <div className="bg-neutral-900 border border-neutral-750 rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl">
             <div className="flex items-center gap-2 text-red-400 font-bold text-sm">
               <AlertCircle className="w-5 h-5" />

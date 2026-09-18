@@ -64,7 +64,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   if (currentUser.role === 'employee') {
     return (
       <header className="bg-neutral-900 border-b border-neutral-800 sticky top-0 z-40 shadow-md">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
           {/* Left: Official Logo "SmartStock RWANDA" with Emerald Green Shield */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold shadow-sm shrink-0">
@@ -76,7 +76,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   SMARTSTOCK <span className="text-emerald-400 text-xs px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-800/60 uppercase font-mono">RWANDA</span>
                 </span>
               </div>
-              <p className="text-xs text-neutral-400 truncate max-w-[180px] sm:max-w-xs">
+              <p className="text-xs text-neutral-400 truncate max-w-[110px] sm:max-w-xs">
                 {currentUser.shopName} &bull; <span className="text-emerald-400 font-medium">Kigali, RW</span>
               </p>
             </div>
@@ -101,16 +101,16 @@ export const Navigation: React.FC<NavigationProps> = ({
           </div>
 
           {/* Right: Clickable Cashier Profile Badge (Opens Profile Modal) + Red Logout/End Shift Button */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end">
             {/* Clickable User Badge: Opens Personal Profile Modal */}
             <button
               type="button"
               onClick={onOpenProfile}
-              className="bg-slate-800/80 hover:bg-slate-700/80 text-white border border-slate-700 hover:border-slate-600 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 shadow-xs select-none transition cursor-pointer"
+              className="bg-slate-800/80 hover:bg-slate-700/80 text-white border border-slate-700 hover:border-slate-600 px-2.5 md:px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 shadow-xs select-none transition cursor-pointer"
               title="View / Edit Profile"
             >
               <UserIcon className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="truncate max-w-[210px] sm:max-w-none">
+              <span className="hidden md:inline truncate max-w-[210px]">
                 {currentUser.name || 'Eric Nshimiyimana'} (Cashier / Employee)
               </span>
             </button>
@@ -125,11 +125,12 @@ export const Navigation: React.FC<NavigationProps> = ({
                   onLogout();
                 }
               }}
-              className="px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-bold text-xs sm:text-sm rounded-xl transition flex items-center gap-1.5 shadow-md shadow-red-950/50 active:scale-95"
+              className="px-2.5 md:px-4 py-2 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-bold text-xs sm:text-sm rounded-xl transition flex items-center gap-1.5 shadow-md shadow-red-950/50 active:scale-95"
               title="End Shift / Blind Reconciliation"
             >
               <LogOut className="w-3.5 h-3.5 shrink-0" />
-              <span className="whitespace-nowrap">End Shift / Blind Reconciliation</span>
+              <span className="md:hidden whitespace-nowrap">End Shift</span>
+              <span className="hidden md:inline whitespace-nowrap">End Shift / Blind Reconciliation</span>
             </button>
           </div>
         </div>
@@ -162,7 +163,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         </div>
 
         {/* Right: Language Selector switch (Kinyarwanda | English | Français) + Online/Offline indicator */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 justify-end flex-wrap">
           {/* Language Selector Switch */}
           <div 
             id="header-language-switch"

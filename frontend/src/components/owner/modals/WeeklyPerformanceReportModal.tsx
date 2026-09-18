@@ -39,7 +39,7 @@ export const WeeklyPerformanceReportModal: React.FC<WeeklyPerformanceReportModal
   const prefilledAIPrompt = `Ndasaba isesengura ryimbitse kuri Raporo y'Icyumweru: Ubwiyongere bw'abakiriya ni ${report.customerTrends.growthPercent >= 0 ? '+' : ''}${report.customerTrends.growthPercent}% (Abashya: ${report.customerTrends.newCustomers}, Abagarutse: ${report.customerTrends.returningCustomers}), Inyungu yose ni ${report.salesVolume.grossProfitRwf.toLocaleString()} RWF (${report.salesVolume.grossMarginPercent}%), n'amadeni asigaye ni ${report.creditAndDebt.outstandingBalanceRwf.toLocaleString()} RWF mu bakiriya ${report.creditAndDebt.activeDebtorsCount}. Ni izihe nama zafasha kuzamura inyungu no kugarura amadeni vuba?`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md overflow-y-auto animate-in fade-in">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md overflow-y-auto animate-in fade-in">
       <div className="relative w-full max-w-4xl bg-[#0b1329] border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="p-5 sm:p-6 border-b border-slate-800/80 flex items-start justify-between bg-slate-900/70 shrink-0">

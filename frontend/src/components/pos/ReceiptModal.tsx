@@ -341,7 +341,7 @@ Murakoze cyane kubana natwe! / Thank you for shopping with us!`;
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-2 sm:p-4 backdrop-blur-xs overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/85 p-2 sm:p-4 backdrop-blur-xs overflow-y-auto">
       {/* Embedded print CSS targeting exactly 80mm thermal receipt */}
       <style>{`
         @media print {

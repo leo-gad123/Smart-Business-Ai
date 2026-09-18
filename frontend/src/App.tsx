@@ -422,7 +422,7 @@ export default function App() {
       <div 
         className={`min-h-screen text-neutral-100 flex flex-col selection:bg-emerald-500 selection:text-neutral-950 pb-16 lg:pb-0 transition-all duration-300 ${
           isOwnerRoom 
-            ? "bg-[url('https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=2072&auto=format&fit=crop')] bg-cover bg-center bg-fixed" 
+            ? "bg-[url('https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=2072&auto=format&fit=crop')] bg-cover bg-center lg:bg-fixed" 
             : 'bg-neutral-950'
         }`}
       >
@@ -592,7 +592,7 @@ export default function App() {
 
       {/* Floating Modal: Open Register Shift */}
       {isOpenShiftModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 p-4 backdrop-blur-xs overflow-y-auto">
           <div className="bg-neutral-900 border border-neutral-750 rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
               <div className="flex items-center gap-2 text-white font-bold text-sm">

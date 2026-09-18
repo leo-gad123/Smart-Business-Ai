@@ -453,7 +453,7 @@ export const DebtorsDashboardTab: React.FC<DebtorsDashboardTabProps> = ({
 
       {/* SETTLEMENT MODAL */}
       {settlingDebtor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in overflow-y-auto">
           <div className="w-full max-w-md bg-[#0b1329] border border-purple-800/60 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
@@ -571,7 +571,7 @@ export const DebtorsDashboardTab: React.FC<DebtorsDashboardTabProps> = ({
 
       {/* VIEW SETTLEMENT HISTORY MODAL */}
       {viewHistoryDebtor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in overflow-y-auto">
           <div className="w-full max-w-md bg-[#0b1329] border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
@@ -627,7 +627,7 @@ export const DebtorsDashboardTab: React.FC<DebtorsDashboardTabProps> = ({
 
       {/* MANUAL NEW DEBTOR MODAL */}
       {isManualModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in overflow-y-auto">
           <div className="w-full max-w-md bg-[#0b1329] border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -734,7 +734,7 @@ export const DebtorsDashboardTab: React.FC<DebtorsDashboardTabProps> = ({
 
       {/* EDIT DEBTOR MODAL */}
       {editingDebtor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in overflow-y-auto">
           <div className="w-full max-w-md bg-[#0b1329] border border-amber-800/50 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
