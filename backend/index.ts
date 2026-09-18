@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
-import { connectMongo, getItems, replaceItems, clearCollection, listCollections, getItem, upsertItem, deleteItem, ensureSubscriptionIndexes } from './mongo';
+import { connectMongo, getItems, replaceItems, replaceShopItems, clearCollection, listCollections, getItem, upsertItem, deleteItem, ensureSubscriptionIndexes } from './mongo';
 import { seedDatabase } from './seed';
 import { COLLECTIONS, ALL_COLLECTION_NAMES } from './models';
 import {
@@ -77,13 +77,18 @@ app.put('/api/collections/:name', async (req: Request, res: Response) => {
   if (!validName(name)) {
     return res.status(400).json({ error: `Unknown collection: ${name}` });
   }
-  const { data } = req.body || {};
+  const { data, shop } = req.body || {};
   if (!Array.isArray(data)) {
     return res.status(400).json({ error: 'Expected body: { "data": [...] }' });
   }
   try {
-    await replaceItems(name, data);
-    res.json({ ok: true, collection: name, count: data.length });
+    if (name === COLLECTIONS.PRODUCTS && typeof shop === 'string' && shop) {
+      await replaceShopItems(name, shop, data);
+      res.json({ ok: true, collection: name, shop, count: data.length });
+    } else {
+      await replaceItems(name, data);
+      res.json({ ok: true, collection: name, count: data.length });
+    }
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }

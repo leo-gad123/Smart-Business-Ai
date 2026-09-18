@@ -19,7 +19,6 @@ import {
   WeeklyPerformanceReport
 } from '../types';
 import { 
-  INITIAL_PRODUCTS, 
   DEFAULT_RETAIL_PRODUCTS, 
   INITIAL_USERS, 
   INITIAL_SHIFTS, 
@@ -129,7 +128,11 @@ class DatabaseService {
       } else {
         payload = [];
       }
-      void mongoSync.pushCollection(col as mongoSync.CollectionName, payload);
+      if (col === 'products') {
+        void mongoSync.pushCollection(col as mongoSync.CollectionName, payload, this.getCurrentUser()?.shopName);
+      } else {
+        void mongoSync.pushCollection(col as mongoSync.CollectionName, payload);
+      }
     }, 250);
   }
 
@@ -415,15 +418,35 @@ class DatabaseService {
 
   // --- Products ---
   getProducts(): Product[] {
-    return this.getStorage<Product[]>(STORAGE_KEYS.PRODUCTS, INITIAL_PRODUCTS);
+    const all = this.getStorage<Product[]>(STORAGE_KEYS.PRODUCTS, []);
+    const currentUser = this.getCurrentUser();
+    const shop = currentUser?.shopName;
+    if (!shop) return all;
+    const hasAnyScoped = all.some(p => !!p.shopName);
+    const owned = all.filter(p => !p.shopName || p.shopName === shop);
+    // One-time migration: if this shop owns nothing yet and the catalog is still
+    // fully untagged (legacy shared-seed era), claim it for this business so each
+    // business's catalog is database-driven and isolated per shop.
+    if (owned.length === 0 && !hasAnyScoped && all.length > 0) {
+      const claimed = all.map(p => ({ ...p, shopName: shop }));
+      this.setStorage(STORAGE_KEYS.PRODUCTS, claimed);
+      return claimed;
+    }
+    return owned;
   }
 
   seedDefaultProducts(): Product[] {
-    this.setStorage(STORAGE_KEYS.PRODUCTS, DEFAULT_RETAIL_PRODUCTS);
-    return DEFAULT_RETAIL_PRODUCTS;
+    const shopName = this.getCurrentUser()?.shopName;
+    const tagged = DEFAULT_RETAIL_PRODUCTS.map(p => ({ ...p, shopName }));
+    this.setStorage(STORAGE_KEYS.PRODUCTS, tagged);
+    return tagged;
   }
 
   saveProduct(product: Product, broadcastSms = true): { product: Product; smsSentCount: number } {
+    const shopName = this.getCurrentUser()?.shopName;
+    if (shopName) {
+      product.shopName = product.shopName || shopName;
+    }
     const products = this.getProducts();
     const index = products.findIndex(p => p.id === product.id);
     const isNew = index < 0;

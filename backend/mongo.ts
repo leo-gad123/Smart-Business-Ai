@@ -49,6 +49,25 @@ export async function replaceItems(collectionName: string, items: unknown[]): Pr
   }
 }
 
+/**
+ * Replace only the documents belonging to a single shop (shared collections like
+ * "products"). Documents of other shops are preserved, and legacy docs without a
+ * shopName are claimed by the pushing shop so each business's catalog stays isolated.
+ */
+export async function replaceShopItems(
+  collectionName: string,
+  shop: string,
+  items: unknown[],
+): Promise<void> {
+  const model = getModel(collectionName);
+  await model
+    .deleteMany({ $or: [{ shopName: shop }, { shopName: { $exists: false } }] })
+    .exec();
+  if (items && items.length > 0) {
+    await model.insertMany(items as Record<string, unknown>[]);
+  }
+}
+
 export async function clearCollection(collectionName: string): Promise<void> {
   const model = getModel(collectionName);
   await model.deleteMany({}).exec();

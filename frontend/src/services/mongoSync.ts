@@ -67,12 +67,12 @@ export async function fetchState(): Promise<SyncState | null> {
   }
 }
 
-export async function pushCollection(name: CollectionName, data: unknown[]): Promise<boolean> {
+export async function pushCollection(name: CollectionName, data: unknown[], shop?: string): Promise<boolean> {
   try {
     const res = await fetch(`/api/collections/${name}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data }),
+      body: JSON.stringify({ data, shop }),
     });
     return res.ok;
   } catch {

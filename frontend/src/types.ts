@@ -66,6 +66,7 @@ export interface Product {
   expiryDate?: string;       // YYYY-MM-DD for expiry tracking
   imageUrl?: string;
   lastRestockedAt: string;
+  shopName?: string;         // Business/shop this product belongs to (unset = legacy shared catalog)
 }
 
 export interface BusinessGoals {
