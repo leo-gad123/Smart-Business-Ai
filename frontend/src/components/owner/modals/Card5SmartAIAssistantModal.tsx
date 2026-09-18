@@ -9,15 +9,14 @@ import {
   CheckCircle2, 
   Package, 
   TrendingUp, 
-  Users, 
+Users,
   Receipt,
-  RefreshCw,
   Lightbulb
 } from 'lucide-react';
 import { Product, SaleTransaction, ShiftRegister, User, AIChatMessage } from '../../../types';
 import { db } from '../../../services/db';
 import { useLanguage } from '../../../contexts/LanguageContext';
-import { GoogleGenAI } from '@google/genai';
+import { getAIConfig, askAI, buildShopAIContext } from '../../../services/aiApi';
 
 interface Card5SmartAIAssistantModalProps {
   currentUser: User;
@@ -100,7 +99,12 @@ Wambaza ikibazo cyose mu Kinyarwanda cyangwa mu Cyongereza!`;
   ]);
   const [inputQuery, setInputQuery] = useState('');
   const [isThinking, setIsThinking] = useState(false);
+  const [aiConfigured, setAiConfigured] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    getAIConfig().then((cfg) => setAiConfigured(cfg.configured)).catch(() => setAiConfigured(false));
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -146,60 +150,35 @@ Wambaza ikibazo cyose mu Kinyarwanda cyangwa mu Cyongereza!`;
       })
       .filter(d => d.totalDiscrepancy !== 0);
 
-    const totalSalesRev = sales.reduce((acc, s) => acc + (s.isVoided ? 0 : s.totalAmountRwf), 0);
+    const totalSalesRev = sales.reduce((acc, s) => acc + (s.isVoided ? 0 : s.totalRwf), 0);
 
-    // Call Gemini if API Key is configured
-    const apiKey = typeof process !== 'undefined' ? process.env?.GEMINI_API_KEY : undefined;
-
-    if (apiKey) {
+    // Call the server-side Gemini proxy with full business history + trends
+    if (aiConfigured) {
       try {
-        const ai = new GoogleGenAI({ apiKey });
-        const systemPrompt = `You are "SmartStock Rwanda AI Business Assistant", an expert retail store auditor and operations consultant based in Kigali, Rwanda.
-Your role is to answer questions from the store owner ("${currentUser.shopName}") accurately, professionally, and empathetically using the LIVE shop data provided below.
-Provide your response in clear, helpful Kinyarwanda and English (bilingual or matching the user query).
-Use specific numbers, currency in RWF, and actionable next steps.
+        const shopContext = buildShopAIContext({ currentUser, products, sales, shifts, allUsers });
+        const systemInstruction = `You are "SmartStock Rwanda AI Business Assistant", an expert retail store auditor and operations consultant based in Kigali, Rwanda.
+Your role is to answer questions from the store owner ("${currentUser.shopName}") accurately, professionally, and empathetically using the LIVE shop data + full business history provided below.
+Reply in the same language the user asks in (Kinyarwanda, French, or English). Be confident, use specific RWF numbers, and always end with clear actionable next steps.
+Don't invent figures that are not present in the provided telemetry.
 
-LIVE STORE TELEMETRY:
-- Shop Name: ${currentUser.shopName}
-- Total SKUs in Stock: ${products.length}
-- Low Stock Items: ${JSON.stringify(lowStockItems.map(p => ({ name: p.name, currentStock: p.currentStock, reorderLevel: p.reorderLevel, unit: p.unit })))}
-- Active Employees on Contract: ${JSON.stringify(contracts.map(c => ({ name: c.employeeName, role: c.role, salaryRwf: c.monthlySalaryRwf, status: c.status })))}
-- Total Monthly Payroll Obligation: ${totalSalariesMonthly} RWF
-- Cashier Shift Discrepancies: ${JSON.stringify(shiftDiscrepancies)}
-- Total Sales Generated: ${totalSalesRev} RWF
-- Purchase Invoices Recorded: ${invoices.length} invoices totaling ${invoices.reduce((a, b) => a + b.totalAmountRwf, 0)} RWF
-- Operational Expenses Logged: ${expenses.length} expenses totaling ${expenses.reduce((a, b) => a + b.amountRwf, 0)} RWF
+RESPOND IN BOTH KINYARWANDA AND ENGLISH ONLY IF THE QUESTION IS UNSPECIFIED.
 
-CUSTOMER GROWTH & SALES ANALYTICS:
-- Total Customers: ${analytics.totalCustomers}
-- New Customers: ${analytics.newCustomers}
-- Returning Customers: ${analytics.returningCustomers}
-- Repeat Customer Rate: ${analytics.repeatCustomerRatePercent}%
-- Estimated Customer Churn Rate: ${analytics.churnRatePercent}%
-- Customer Growth Trend: +${analytics.customerGrowthPercent}% (${analytics.growthTrend})
-- Top-Moving Products: ${JSON.stringify(analytics.topMovingItems)}
-- Debtors & Credit Status: ${analytics.debtSummary.activeDebtorsCount} active debtors, ${analytics.debtSummary.outstandingBalanceRwf} RWF unpaid balance, ${analytics.debtSummary.totalRecoveredRwf} RWF recovered (${Math.round((analytics.debtSummary.totalRecoveredRwf / (analytics.debtSummary.totalDebtIssuedRwf || 1)) * 100)}%)
-- Sales Volume & Gross Margin: Revenue ${analytics.salesSummary.totalRevenueRwf} RWF, Gross Profit ${analytics.salesSummary.grossProfitRwf} RWF (${analytics.salesSummary.profitMarginPercent}%)
-`;
+BEGIN SHOP CONTEXT (LIVE TELEMETRY + FULL HISTORY + DAILY/WEEKLY/MONTHLY TRENDS):
+${shopContext}
+END SHOP CONTEXT.`;
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: `${systemPrompt}\n\nUser Question: "${queryText}"`
-        });
-
-        if (response.text) {
-          const aiMsg: AIChatMessage = {
-            id: `msg-${Date.now()}-ai`,
-            sender: 'assistant',
-            text: response.text,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          };
-          setMessages(prev => [...prev, aiMsg]);
-          setIsThinking(false);
-          return;
-        }
+        const reply = await askAI(queryText, systemInstruction);
+        const aiMsg: AIChatMessage = {
+          id: `msg-${Date.now()}-ai`,
+          sender: 'assistant',
+          text: reply,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setMessages(prev => [...prev, aiMsg]);
+        setIsThinking(false);
+        return;
       } catch (err) {
-        console.warn('Gemini Assistant API fallback:', err);
+        console.warn('AI Assistant proxy fallback:', err);
       }
     }
 
@@ -354,16 +333,20 @@ CUSTOMER GROWTH & SALES ANALYTICS:
           {isThinking && (
             <div className="flex gap-3 max-w-[80%] self-start items-center">
               <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shrink-0">
-                <Bot className="w-4 h-4 animate-spin" />
+                <Bot className="w-4 h-4 animate-pulse" />
               </div>
-              <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-emerald-300 flex items-center gap-2">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-emerald-300 flex items-center gap-2.5">
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </span>
                 <span>
-                  {language === 'fr' 
-                    ? "L'IA analyse les données de stock et financières..." 
-                    : language === 'en' 
-                    ? "AI is analyzing stock telemetry and shop metrics..." 
-                    : "AI irimo gusesengura amakuru ya stock n'ubukungu..."}
+                  {language === 'fr'
+                    ? "L'IA analyse l'historique des ventes et les tendances..."
+                    : language === 'en'
+                    ? "AI is reviewing your full sales history and trends..."
+                    : "AI irimo gusesengura amateka ya mabicuruzwa n'ubukungu..."}
                 </span>
               </div>
             </div>

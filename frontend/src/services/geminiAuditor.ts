@@ -1,5 +1,5 @@
-import { GoogleGenAI } from '@google/genai';
 import { ShiftRegister, FraudAlert, SaleTransaction, Product, SpotCheckAudit } from '../types';
+import { askAI } from './aiApi';
 
 export interface AuditAnalysisReport {
   summary: string;
@@ -43,13 +43,9 @@ export async function runAIForensicAudit(params: {
     amount: a.amountAtRiskRwf
   }));
 
-  // Check if API key is present in environment
-  const apiKey = typeof process !== 'undefined' ? process.env?.GEMINI_API_KEY : undefined;
-
-  if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `You are a Senior Retail Forensic Auditor specializing in small-to-medium retail shops, supermarkets, and boutiques in Rwanda and East Africa.
+  // Server-side Gemini LLM proxy (key stays on the backend)
+  try {
+    const prompt = `You are a Senior Retail Forensic Auditor specializing in small-to-medium retail shops, supermarkets, and boutiques in Rwanda and East Africa.
 Analyze this shop's telemetry to detect stock shrinkage, cash discrepancies (e.g., 500 RWF daily theft compounding), price tampering, and ghost voids:
 
 SHIFTS TELEMETRY:
@@ -75,21 +71,12 @@ Provide an audit analysis in structured JSON format matching this exact schema:
 }
 Output only valid JSON.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json'
-        }
-      });
-
-      if (response.text) {
-        const parsed = JSON.parse(response.text) as AuditAnalysisReport;
-        return parsed;
-      }
-    } catch (err) {
-      console.warn('Gemini API call failed, using heuristic forensic engine fallback:', err);
-    }
+    const systemInstruction = `You are a Senior Retail Forensic Auditor for Rwanda retail shops.\nGuidance: respond only with the requested JSON schema. Numeric monetary fields must be plain numbers in RWF.`;
+    const text = await askAI(prompt, systemInstruction, true);
+    const parsed = JSON.parse(text) as AuditAnalysisReport;
+    return parsed;
+  } catch (err) {
+    console.warn('Gemini API call failed, using heuristic forensic engine fallback:', err);
   }
 
   // High-fidelity fallback heuristic engine tailored for Rwanda retail

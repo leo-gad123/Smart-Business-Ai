@@ -14,6 +14,7 @@ import {
   MTN_MOMO_TARGET_ENV,
 } from './mtnMomo';
 import { sendOTP, verifyOTP } from './email';
+import { isGeminiConfigured, runGeminiChat, GEMINI_MODEL } from './gemini';
 import {
   createSuperAdminSession,
   verifySuperAdminSession,
@@ -193,6 +194,37 @@ app.post('/api/seed', async (req: Request, res: Response) => {
     res.json({ ok: true, seeded: results });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// AI Business Assistant (Gemini LLM proxy — key stays server-side)
+// ---------------------------------------------------------------------------
+app.get('/api/ai/config', (_req: Request, res: Response) => {
+  res.json({ ok: true, configured: isGeminiConfigured(), model: GEMINI_MODEL });
+});
+
+app.post('/api/ai/chat', async (req: Request, res: Response) => {
+  try {
+    const { prompt, systemContext, jsonMode } = req.body || {};
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+      return res.status(400).json({ ok: false, error: 'A non-empty prompt string is required.' });
+    }
+    if (prompt.length > 12000) {
+      return res.status(400).json({ ok: false, error: 'Prompt is too long (max 12,000 characters).' });
+    }
+    if (!isGeminiConfigured()) {
+      return res.status(503).json({ ok: false, error: 'The AI service is not configured yet. Add GEMINI_API_KEY on the server.' });
+    }
+    const reply = await runGeminiChat({
+      prompt: prompt.trim(),
+      systemContext: typeof systemContext === 'string' ? systemContext.slice(0, 60000) : undefined,
+      jsonMode: Boolean(jsonMode),
+    });
+    res.json({ ok: true, reply });
+  } catch (err) {
+    console.error('[SmartStock AI] Chat failed:', err);
+    res.status(502).json({ ok: false, error: (err as Error).message });
   }
 });
 

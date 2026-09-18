@@ -23,12 +23,14 @@ import {
   Eye,
   EyeOff,
   Crown,
-  LockKeyhole
+  LockKeyhole,
+  Sparkles
 } from 'lucide-react';
 import { User as UserType, SaleTransaction, FraudAlert, OnboardingRegistration, UserRole } from '../../types';
 import { db } from '../../services/db';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { AdminSubscriptionDashboard } from './AdminSubscriptionDashboard';
+import { SuperAdminAIAssistant } from './SuperAdminAIAssistant';
 
 interface SuperAdminDashboardProps {
   currentUser: UserType;
@@ -73,6 +75,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [isAIOpen, setIsAIOpen] = useState(false);
   const [revealedPinUsers, setRevealedPinUsers] = useState<Set<string>>(new Set());
   const [revealedPasswordUsers, setRevealedPasswordUsers] = useState<Set<string>>(new Set());
 
@@ -364,6 +367,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           <p className="text-xs sm:text-sm text-slate-400 font-normal max-w-2xl mx-auto">
             Manage all seller accounts, monitor the entire SmartStock platform and onboard new store owners.
           </p>
+          <div>
+            <button
+              onClick={() => setIsAIOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs transition shadow-md shadow-emerald-500/20 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4" />
+              Smart Platform AI Assistant
+            </button>
+          </div>
         </div>
 
         {/* ============================ KPI CARDS ============================ */}
@@ -1058,6 +1070,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             )}
           </div>
         </div>
+      )}
+
+      {isAIOpen && (
+        <SuperAdminAIAssistant
+          currentUser={currentUser}
+          allUsers={allUsers}
+          sales={sales}
+          alerts={alerts}
+          onClose={() => setIsAIOpen(false)}
+        />
       )}
     </div>
   );
