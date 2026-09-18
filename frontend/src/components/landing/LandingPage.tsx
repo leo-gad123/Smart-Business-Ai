@@ -213,14 +213,27 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onRegister
     }
   };
 
-  // Find a registered account by email OR phone number (owner or staff/cashier)
-  const findRegisteredByIdentifier = (identifier: string) => {
+  // Find a registered account by email OR phone number, scoped to the SELECTED
+  // login role so the account found always matches the role stored in the database.
+  // If the identifier belongs to a different role, that role is reported back so
+  // the user can correct the Role selector before credentials are accepted.
+  const findRegisteredByIdentifier = (identifier: string, role: '' | 'owner' | 'cashier' | 'employee') => {
     const value = identifier.trim();
     const normalized = value.toLowerCase();
-    return db.getUsers().find(u =>
-      (u.email || '').toLowerCase() === normalized ||
-      (u.phone || '').replace(/[\s-]/g, '').toLowerCase() === value.replace(/[\s-]/g, '').toLowerCase()
+    const stripped = value.replace(/[\s-]/g, '').toLowerCase();
+    const roleKey: 'owner' | 'employee' = role === 'cashier' ? 'employee' : (role || 'owner');
+    const allUsers = db.getUsers();
+    const ofSelectedRole = allUsers.find(u =>
+      u.role === roleKey &&
+      ((u.email || '').toLowerCase() === normalized ||
+        (u.phone || '').replace(/[\s-]/g, '').toLowerCase() === stripped)
     );
+    if (ofSelectedRole) return { user: ofSelectedRole, mismatchRole: undefined };
+    const otherRole = allUsers.find(u =>
+      (u.email || '').toLowerCase() === normalized ||
+      (u.phone || '').replace(/[\s-]/g, '').toLowerCase() === stripped
+    );
+    return { user: otherRole, mismatchRole: otherRole ? otherRole.role : undefined };
   };
 
   // Step 1: Unified login — validate selected role (Owner/Cashier/Employee) + credentials,
@@ -241,7 +254,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onRegister
       setLoginError('Ijambobanga (Password) rigomba kuba rifite nibura inyuguti 4.');
       return;
     }
-    const registered = findRegisteredByIdentifier(identifier);
+    const { user: registered, mismatchRole } = findRegisteredByIdentifier(identifier, loginRole);
+    // If the identifier matches an account assigned to a DIFFERENT role,
+    // tell the user exactly what role they should select instead.
+    if (mismatchRole && registered && registered.role !== 'superadmin') {
+      const assignedLabel = registered.role === 'owner' ? 'Owner' : 'Employee/Cashier';
+      const selectedLabel = loginRole === 'owner' ? 'Owner' : loginRole === 'cashier' ? 'Cashier' : 'Employee';
+      setLoginError(`"${identifier}" is registered as an ${assignedLabel}. Change the Role selector from ${selectedLabel} → ${assignedLabel} to sign in.`);
+      return;
+    }
     if (!registered || !registered.email) {
       setLoginError(`No registered business account matches "${identifier}". Please use the account's registered email/phone or contact SmartStock support.`);
       return;
@@ -250,11 +271,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onRegister
       setLoginError('Super Admin access uses the dedicated /superadmin sign-in. Please navigate there directly.');
       return;
     }
-    const selectedDbRole = loginRole === 'cashier' ? 'employee' : loginRole;
-    if (registered.role !== selectedDbRole) {
-      setLoginError(`The selected role (${loginRole}) does not match the assigned role for "${identifier}".`);
-      return;
-    }
+    // At this point the role is verified to match the database.
     sendOtpToRegisteredEmail(loginRole, registered.email, loginPassword);
   };
 
