@@ -162,8 +162,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onRegister
       setLoginError(`No registered ${roleLabel} account matches "${email.trim()}". Please use the account's registered email or contact SmartStock support.`);
       return;
     }
-    if (registered.systemPassword && registered.systemPassword !== password.trim()) {
-      setLoginError('Ijambobanga (Password) si ryo kuri konti yanditswe. Ongera ugerageze.');
+    const passwordMatches = Boolean(registered.systemPassword) && registered.systemPassword === password.trim();
+    const pinMatches = Boolean(registered.pin) && registered.pin === password.trim();
+    if (!passwordMatches && !pinMatches) {
+      setLoginError('Ijambobanga (Password) cyangwa PIN sibyo kuri konti yanditswe. Ongera ugerageze.');
       return;
     }
 

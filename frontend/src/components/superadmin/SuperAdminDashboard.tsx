@@ -22,7 +22,8 @@ import {
   CreditCard,
   Eye,
   EyeOff,
-  Crown
+  Crown,
+  LockKeyhole
 } from 'lucide-react';
 import { User as UserType, SaleTransaction, FraudAlert, OnboardingRegistration, UserRole } from '../../types';
 import { db } from '../../services/db';
@@ -73,6 +74,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [revealedPinUsers, setRevealedPinUsers] = useState<Set<string>>(new Set());
+  const [revealedPasswordUsers, setRevealedPasswordUsers] = useState<Set<string>>(new Set());
 
   // Add New User (any role) Form State
   const [userForm, setUserForm] = useState({
@@ -80,6 +82,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     role: 'employee' as UserRole,
     phone: '+250 78',
     email: '',
+    password: '',
     shopName: '',
     shiftType: 'WHOLE_DAY' as UserType['shiftType'],
     subscriptionStatus: 'ACTIVE' as UserType['subscriptionStatus']
@@ -91,6 +94,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     ownerFullName: '',
     ownerPhone: '+250 78',
     ownerEmail: '',
+    ownerPassword: '',
     shopName: '',
     districtLocation: DISTRICTS[0],
     shopType: 'Supermarket' as OnboardingRegistration['shopType'],
@@ -167,6 +171,40 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     }
   };
 
+  const handleResetPassword = (user: UserType) => {
+    const newPassword = window.prompt(
+      `Assign a new login password for ${user.name} (${user.email || user.shopName}). Leave the field empty to auto-generate one.`,
+      ''
+    );
+    if (newPassword === null) return;
+    const trimmed = newPassword.trim();
+    if (trimmed && trimmed.length < 6) {
+      window.alert('Password must be at least 6 characters.');
+      return;
+    }
+    const assigned = trimmed || `Rwanda@${Math.floor(1000 + Math.random() * 9000)}`;
+    try {
+      db.saveUser({ ...user, systemPassword: assigned });
+      reload();
+      onRefreshData();
+      handleSnack(`Login password updated for ${user.name}. Hand it to the owner securely.`);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const toggleRevealPassword = (user: UserType) => {
+    setRevealedPasswordUsers(prev => {
+      const next = new Set(prev);
+      if (next.has(user.id)) {
+        next.delete(user.id);
+      } else {
+        next.add(user.id);
+      }
+      return next;
+    });
+  };
+
   const handleCreateOwner = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.ownerFullName.trim() || !form.shopName.trim() || !form.ownerPhone.trim()) {
@@ -177,7 +215,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       window.alert('Enter a valid email address.');
       return;
     }
-    const password = `Rwanda@${Math.floor(1000 + Math.random() * 9000)}`;
+    if (form.ownerPassword.trim() && form.ownerPassword.trim().length < 6) {
+      window.alert('Password must be at least 6 characters if manually assigned.');
+      return;
+    }
+    const password = form.ownerPassword.trim() || `Rwanda@${Math.floor(1000 + Math.random() * 9000)}`;
     try {
       const result = db.createOwnerAccount({
         ownerFullName: form.ownerFullName.trim(),
@@ -207,6 +249,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       ownerFullName: '',
       ownerPhone: '+250 78',
       ownerEmail: '',
+      ownerPassword: '',
       shopName: '',
       districtLocation: DISTRICTS[0],
       shopType: 'Supermarket',
@@ -225,7 +268,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       window.alert('Enter a valid email address.');
       return;
     }
-    const password = `Rwanda@${Math.floor(1000 + Math.random() * 9000)}`;
+    if (userForm.password.trim() && userForm.password.trim().length < 6) {
+      window.alert('Password must be at least 6 characters if manually assigned.');
+      return;
+    }
+    const password = userForm.password.trim() || `Rwanda@${Math.floor(1000 + Math.random() * 9000)}`;
     const pin = String(Math.floor(1000 + Math.random() * 9000));
     const roleUser: UserType = {
       id: `usr-${userForm.role}-${Date.now()}`,
@@ -258,6 +305,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       role: 'employee',
       phone: '+250 78',
       email: '',
+      password: '',
       shopName: '',
       shiftType: 'WHOLE_DAY',
       subscriptionStatus: 'ACTIVE'
@@ -484,6 +532,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   {displayedOwners.map(user => {
                     const st = statusStyle(user);
                     const pinRevealed = revealedPinUsers.has(user.id);
+                    const passwordRevealed = revealedPasswordUsers.has(user.id);
                     return (
                       <tr key={user.id} className="border-b border-slate-800/60 hover:bg-slate-900/40 transition">
                         <td className="px-4 py-3.5">
@@ -534,9 +583,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                             >
                               {pinRevealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
-                            {pinRevealed && (
+                            <button
+                              onClick={() => toggleRevealPassword(user)}
+                              className="p-2 text-slate-400 hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition"
+                              title={passwordRevealed ? 'Hide login password' : 'Show login password'}
+                            >
+                              <LockKeyhole className="w-4 h-4" />
+                            </button>
+                            {(pinRevealed || passwordRevealed) && (
                               <span className="px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded text-amber-300 font-mono text-[10px]">
-                                PIN {user.pin}
+                                {pinRevealed ? `PIN ${user.pin}` : `PW ${user.systemPassword || '—'}`}
                               </span>
                             )}
                             <button
@@ -545,6 +601,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                               title="Reset PIN"
                             >
                               <KeyRound className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleResetPassword(user)}
+                              className="p-2 text-slate-400 hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition"
+                              title="Assign / reset login password"
+                            >
+                              <LockKeyhole className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleToggleActive(user)}
@@ -751,6 +814,18 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                       required
                     />
                   </div>
+                  <div>
+                    <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                      Login Password
+                    </label>
+                    <input
+                      type="text"
+                      value={form.ownerPassword}
+                      onChange={(e) => setForm({ ...form, ownerPassword: e.target.value })}
+                      placeholder="Auto-generated if left blank (min 6 chars)"
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white font-mono placeholder:text-neutral-500 focus:border-emerald-500 outline-none"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -923,6 +998,19 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     value={userForm.email}
                     onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
                     placeholder="user@shop.rw"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white font-mono placeholder:text-neutral-500 focus:border-emerald-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                    Login Password
+                  </label>
+                  <input
+                    type="text"
+                    value={userForm.password}
+                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                    placeholder="Auto-generated if left blank (min 6 chars)"
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white font-mono placeholder:text-neutral-500 focus:border-emerald-500 outline-none"
                   />
                 </div>
