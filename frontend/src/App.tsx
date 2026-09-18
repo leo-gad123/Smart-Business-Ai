@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { db } from './services/db';
 import { SMSService } from './services/smsService';
 import { User, Product, ShiftRegister, SaleTransaction, StockAdjustment, FraudAlert, SpotCheckAudit, CashDenominationCount, OnboardingRegistration, BusinessGoals } from './types';
@@ -405,6 +405,31 @@ export default function App() {
 
   const unreadAlertsCount = alerts.filter(a => a.status === 'PENDING').length;
 
+  // Data isolation: non-superadmin users only see their own shop's users.
+  // The Super Admin account is never exposed outside the admin console.
+  const visibleUsers = useMemo(() => db.getUsersVisibleTo(currentUser), [users, currentUser]);
+
+  // Each user only sees sales/shifts related to them: owners see their own
+  // shop's activity, employees only their own cashier activity. Super Admin
+  // keeps full platform visibility.
+  const { visibleSales, visibleShifts } = useMemo(() => {
+    if (!currentUser || currentUser.role === 'superadmin') {
+      return { visibleSales: sales, visibleShifts: shiftsHistory };
+    }
+    const allowedIds = new Set(visibleUsers.map(u => u.id));
+    const allowedNames = new Set(visibleUsers.map(u => u.name));
+    if (currentUser.role === 'employee') {
+      allowedIds.clear();
+      allowedNames.clear();
+      allowedIds.add(currentUser.id);
+      allowedNames.add(currentUser.name);
+    }
+    return {
+      visibleSales: sales.filter(s => allowedIds.has(s.cashierId) || allowedNames.has(s.cashierName)),
+      visibleShifts: shiftsHistory.filter(s => allowedIds.has(s.cashierId) || allowedNames.has(s.cashierName)),
+    };
+  }, [sales, shiftsHistory, currentUser, visibleUsers]);
+
   const isOwnerRoom = currentUser.role === 'owner' && (activeTab === 'owner_dashboard' || activeTab === 'inventory');
 
   // Dedicated Super Admin route: rendered standalone, no public dashboard chrome.
@@ -435,7 +460,7 @@ export default function App() {
             setActiveTab={setActiveTab}
             currentUser={currentUser}
             onSwitchUser={handleSwitchUser}
-            allUsers={users}
+            allUsers={visibleUsers}
             currentShift={currentShift}
             isOffline={isOffline}
             setIsOffline={setIsOffline}
@@ -469,10 +494,10 @@ export default function App() {
           <OwnerDashboard
             products={products}
             currentUser={currentUser}
-            allUsers={users}
+            allUsers={visibleUsers}
             businessGoals={businessGoals}
-            sales={sales}
-            shifts={shiftsHistory}
+            sales={visibleSales}
+            shifts={visibleShifts}
             onSaveProduct={handleSaveProduct}
             onSaveUser={handleSaveUser}
             onSaveBusinessGoals={handleSaveBusinessGoals}
@@ -536,7 +561,7 @@ export default function App() {
           <BlindCashAudit
             currentShift={currentShift}
             currentUser={currentUser}
-            shiftsHistory={shiftsHistory}
+            shiftsHistory={visibleShifts}
             products={products}
             onOpenShift={handleOpenShift}
             onCloseShiftBlind={handleCloseShiftBlind}
@@ -546,8 +571,8 @@ export default function App() {
 
         {activeTab === 'fraud_dashboard' && (
           <FraudDiscrepancyDashboard
-            shifts={shiftsHistory}
-            sales={sales}
+            shifts={visibleShifts}
+            sales={visibleSales}
             alerts={alerts}
             products={products}
             spotChecks={spotChecks}

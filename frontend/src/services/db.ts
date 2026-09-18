@@ -174,6 +174,18 @@ class DatabaseService {
     return users;
   }
 
+  // Privacy scoping: the Super Admin account is never visible outside the admin
+  // console, and each business user only sees users that belong to their own shop.
+  getUsersVisibleTo(currentUser?: User | null): User[] {
+    const all = this.getUsers();
+    if (!currentUser) return all;
+    if (currentUser.role === 'superadmin') return all;
+    return all.filter(
+      u => u.role !== 'superadmin'
+        && (u.id === currentUser.id || (!!u.shopName && u.shopName === currentUser.shopName)),
+    );
+  }
+
   saveUser(user: User): User {
     const users = this.getUsers();
     const idx = users.findIndex(u => u.id === user.id);
