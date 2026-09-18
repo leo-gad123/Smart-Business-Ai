@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ShieldCheck,
   Store,
@@ -132,6 +132,31 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   };
 
   const displayedOwners = filterOwners(owners);
+
+  // Businesses created by owners (self-registered via onboarding) plus shops
+  // already owned in the system — so the Super Admin can select & assign an
+  // existing business to a new owner account. Owner login then keys every
+  // dataset (staff, sales, shifts, products) to that shopName = they control it.
+  const businessesCreatedByOwners = useMemo(() => {
+    const list: { name: string; ownerName?: string }[] = [];
+    const seen = new Set<string>();
+    const push = (n: string, ownerName?: string) => {
+      const key = n.trim().toLowerCase();
+      if (!n.trim() || seen.has(key)) return;
+      if (/^(smartstock (retail|hq|rwanda)|smartstock rwanda hq)$/i.test(n.trim())) return;
+      seen.add(key);
+      list.push({ name: n.trim(), ownerName });
+    };
+    owners.forEach(o => push(o.shopName, o.name));
+    db.getOnboardings().forEach(b => push(b.shopName, b.ownerFullName));
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  }, [owners]);
+
+  const selectedBusinessOwner = useMemo(() => {
+    const key = form.shopName.trim().toLowerCase();
+    if (!key) return undefined;
+    return owners.find(o => o.shopName.trim().toLowerCase() === key);
+  }, [form.shopName, owners]);
 
   const totalRevenue = sales.reduce((sum, s) => sum + (s.isVoided ? 0 : s.totalRwf), 0);
   const transactionCount = sales.filter(s => !s.isVoided).length;
@@ -785,18 +810,50 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                      Shop Name *
+                    <label className="text-xs font-semibold text-neutral-300 block mb-1 flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+                      Assign Existing Business to Owner *
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={form.shopName}
                       onChange={(e) => setForm({ ...form, shopName: e.target.value })}
-                      placeholder="e.g., Kigali Fresh Mart"
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:border-emerald-500 outline-none"
-                      required
-                    />
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none"
+                    >
+                      <option value="">— Select existing business, or type a new one below —</option>
+                      {businessesCreatedByOwners.map((b) => (
+                        <option key={b.name} value={b.name}>
+                          {b.name}
+                          {b.ownerName ? `  (created by ${b.ownerName})` : ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                    Shop Name (confirmed) *
+                  </label>
+                  <input
+                    type="text"
+                    value={form.shopName}
+                    onChange={(e) => setForm({ ...form, shopName: e.target.value })}
+                    placeholder="Selected above, or type a brand-new business name"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:border-emerald-500 outline-none"
+                    required
+                  />
+                  {selectedBusinessOwner ? (
+                    <p className="mt-1.5 text-[11px] text-amber-400 flex items-start gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                      This business is already assigned to {selectedBusinessOwner.name}. Assigning it to the new
+                      owner transfers full control of this business's staff, sales, shifts and products.
+                    </p>
+                  ) : form.shopName ? (
+                    <p className="mt-1.5 text-[11px] text-emerald-400">
+                      New business — this owner will get full control of &quot;{form.shopName}&quot; when they
+                      log in, including its staff, inventory, sales and reports.
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
