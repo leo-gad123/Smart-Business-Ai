@@ -14,9 +14,191 @@ import {
   Copy,
   Loader2
 } from 'lucide-react';
-import { jsPDF } from 'jspdf';
+import type { jsPDF as JsPDFCtor } from 'jspdf';
 import { SaleTransaction } from '../../types';
 import { SMSService } from '../../services/smsService';
+
+// jsPDF is ~350KB, so it is lazy-loaded only when the EBM receipt PDF is
+// actually needed (instant receipt flow, faster first paint) and cached.
+let jsPDFModulePromise: Promise<typeof JsPDFCtor> | null = null;
+function loadJsPDF(): Promise<typeof JsPDFCtor> {
+  if (!jsPDFModulePromise) {
+    jsPDFModulePromise = import('jspdf').then(m => m.jsPDF);
+  }
+  return jsPDFModulePromise;
+}
+
+/**
+ * Builds the official RRA EBM v2.1 fiscal receipt PDF (80mm x 215mm thermal)
+ * WITHOUT saving — so it can be generated once in the background and saved
+ * instantly on demand. Pure vector text (no html2canvas), so no black/blank
+ * canvas pages, and the footer is force-paginated so it never clips.
+ */
+async function generateReceiptPdf(sale: SaleTransaction): Promise<any> {
+  const jsPDF = await loadJsPDF();
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: [80, 215],
+    compress: true,
+  });
+  doc.setProperties({
+    title: `SmartStock-Invoice-${sale.receiptNumber}.pdf`,
+    subject: 'RRA EBM v2.1 Fiscal Receipt',
+    author: 'SmartStock Rwanda',
+    creator: 'SmartStock POS',
+  });
+
+  const rra = sale.rraInvoice;
+  const vatAmount = rra?.vatAmountA_18 ?? Math.round(sale.totalRwf * (18 / 118));
+  const taxableAmount = rra?.taxableAmountA_18 ?? (sale.totalRwf - vatAmount);
+
+  const pageWidth = 80;
+  let y = 8;
+
+  // Header
+  doc.setFont('courier', 'bold');
+  doc.setFontSize(10.5);
+  doc.text('SMARTSTOCK RWANDA', pageWidth / 2, y, { align: 'center' });
+  y += 4.5;
+  doc.setFontSize(9);
+  doc.text('MUGABO SUPERMARKET', pageWidth / 2, y, { align: 'center' });
+  y += 3.8;
+  doc.setFont('courier', 'normal');
+  doc.setFontSize(7);
+  doc.text('Nyamirambo Commercial Ave, Kigali', pageWidth / 2, y, { align: 'center' });
+  y += 3.2;
+  doc.text('Tel: +250 788 123 456', pageWidth / 2, y, { align: 'center' });
+  y += 3.8;
+  doc.text('------------------------------------------', pageWidth / 2, y, { align: 'center' });
+  y += 4;
+
+  // RRA Fiscal Details
+  doc.setFont('courier', 'bold');
+  doc.setFontSize(7.5);
+  doc.text('OFFICIAL RRA FISCAL RECEIPT', pageWidth / 2, y, { align: 'center' });
+  y += 3.8;
+  doc.setFont('courier', 'normal');
+  doc.setFontSize(6.8);
+  doc.text(`TIN: ${rra?.tin || '108392019'}   BHF: ${rra?.bhfId || '00'}`, 5, y);
+  y += 3.2;
+  doc.text(`SDC ID: ${rra?.sdcId || 'SDC-RRA-KGL-0492'}`, 5, y);
+  y += 3.2;
+  doc.text(`CIS ID: ${rra?.cisId || 'CIS-SMARTSTOCK-RW-01'}`, 5, y);
+  y += 3.2;
+  doc.text(`SDC Receipt: ${rra?.sdcReceiptNumber || 'SDC/0492/2026/00103'}`, 5, y);
+  y += 3.2;
+  doc.text(`Internal #: ${sale.receiptNumber}`, 5, y);
+  y += 3.2;
+  doc.text(`Date & Time: ${new Date(sale.timestamp).toLocaleString('en-GB')}`, 5, y);
+  y += 3.2;
+  doc.text(`Cashier: ${sale.cashierName}`, 5, y);
+  y += 3.8;
+  doc.text('------------------------------------------', pageWidth / 2, y, { align: 'center' });
+  y += 4;
+
+  // Itemized Table Header
+  doc.setFont('courier', 'bold');
+  doc.setFontSize(7);
+  doc.text('ITEM', 5, y);
+  doc.text('QTY x PRICE', 42, y);
+  doc.text('TOTAL', 75, y, { align: 'right' });
+  y += 3.5;
+  doc.setFont('courier', 'normal');
+
+  // Itemized rows (auto page-break per item, never a clipped/blank page)
+  sale.items.forEach((item) => {
+    if (y > 195) {
+      doc.addPage([80, 215]);
+      y = 8;
+    }
+    const cleanName = item.productName.length > 20
+      ? item.productName.substring(0, 19) + '..'
+      : item.productName;
+    doc.text(`${cleanName} ${item.isVatApplicable ? '(A)' : '(B)'}`, 5, y);
+    y += 3.2;
+    doc.text(`  ${item.quantity} x ${item.unitPriceRwf.toLocaleString()}`, 5, y);
+    doc.text(`${item.totalRwf.toLocaleString()} RWF`, 75, y, { align: 'right' });
+    y += 3.8;
+  });
+
+  // Force the tax/payment/SDC footer onto a fresh page if the current page is
+  // nearly full — this is what prevents clipped blank footer content on the PDF.
+  if (y > 200) {
+    doc.addPage([80, 215]);
+    y = 8;
+  }
+
+  doc.text('------------------------------------------', pageWidth / 2, y, { align: 'center' });
+  y += 4;
+
+  // 18% VAT Tax Breakdown
+  doc.setFont('courier', 'bold');
+  doc.text('TAX BREAKDOWN', 5, y);
+  y += 3.2;
+  doc.setFont('courier', 'normal');
+  doc.text('A: Standard 18% VAT', 5, y);
+  y += 3.2;
+  doc.text(`   Taxable Base: ${taxableAmount.toLocaleString()} RWF`, 5, y);
+  y += 3.2;
+  doc.text(`   18% VAT Amount: ${vatAmount.toLocaleString()} RWF`, 5, y);
+  y += 3.8;
+
+  if ((rra?.taxExemptAmountB || 0) > 0) {
+    doc.text(`B: Exempt 0%: ${(rra?.taxExemptAmountB || 0).toLocaleString()} RWF`, 5, y);
+    y += 3.5;
+  }
+
+  // Grand Total
+  doc.setFont('courier', 'bold');
+  doc.setFontSize(8.5);
+  doc.text('TOTAL INCL. VAT:', 5, y);
+  doc.text(`${sale.totalRwf.toLocaleString()} RWF`, 75, y, { align: 'right' });
+  y += 4.2;
+
+  // Payment Breakdown
+  doc.setFont('courier', 'normal');
+  doc.setFontSize(6.8);
+  const modeLabel = sale.paymentMethod === 'MOMO_MTN' ? 'MTN Mobile Money' : sale.paymentMethod === 'AIRTEL_MONEY' ? 'Airtel Money' : sale.paymentMethod === 'CREDIT' ? 'Kwikopesha / Credit Sale' : 'Cash in Hand';
+  doc.text(`Payment: ${modeLabel}`, 5, y);
+  y += 3.2;
+
+  if (sale.paymentMethod === 'CREDIT') {
+    doc.text(`Debtor: ${sale.customerName || 'Registered Debtor'}`, 5, y);
+    y += 3.2;
+    if (sale.customerPhone) {
+      doc.text(`Phone: ${sale.customerPhone}`, 5, y);
+      y += 3.2;
+    }
+    doc.text(`Status: UNPAID (Logged in Debtors DB)`, 5, y);
+    y += 3.8;
+  } else if (sale.paymentMethod === 'CASH') {
+    doc.text(`Cash Tendered: ${sale.cashTenderedRwf.toLocaleString()} RWF`, 5, y);
+    y += 3.2;
+    doc.text(`Change Returned: ${sale.changeGivenRwf.toLocaleString()} RWF`, 5, y);
+    y += 3.8;
+  } else if (sale.momoReference) {
+    doc.text(`MoMo Ref: ${sale.momoReference}`, 5, y);
+    y += 3.8;
+  }
+
+  doc.text('------------------------------------------', pageWidth / 2, y, { align: 'center' });
+  y += 4;
+
+  // SDC Signature & Verification
+  doc.setFontSize(6.5);
+  doc.text(`SDC Signature: ${rra?.receiptSignature || 'RRA-8F2B-91A4-32DE'}`, 5, y);
+  y += 3.2;
+  doc.text(`Counter: #${rra?.globalReceiptCounter || 103}`, 5, y);
+  y += 3.2;
+  doc.text(`Verify URL: ${rra?.qrVerificationUrl || 'https://ebm.rra.gov.rw/verify'}`, 5, y);
+  y += 4.5;
+  doc.setFont('courier', 'bold');
+  doc.setFontSize(7.5);
+  doc.text('Murakoze Cyane / Thank You!', pageWidth / 2, y, { align: 'center' });
+
+  return doc;
+}
 
 interface ReceiptModalProps {
   sale: SaleTransaction | null;
@@ -34,7 +216,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ sale, onClose, onNex
   const [pdfErrorMessage, setPdfErrorMessage] = useState<string>('');
   const [showQrExpanded, setShowQrExpanded] = useState<boolean>(false);
   const pdfDocRef = useRef<any>(null);
-  const autoDownloadedForRef = useRef<string | null>(null);
+  const pdfWarmedForRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (sale?.customerPhone) {
@@ -49,6 +231,23 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ sale, onClose, onNex
     setPdfError(false);
     setPdfErrorMessage('');
     setIsGeneratingPdf(false);
+  }, [sale?.receiptNumber]);
+
+  // Warm the PDF cache in the background (fast, NO auto-download) so the first
+  // "Download PDF" click is instant and no auto-spawned file can be blank/black.
+  useEffect(() => {
+    if (!sale || pdfDocRef.current || sale.receiptNumber === pdfWarmedForRef.current) return;
+    pdfWarmedForRef.current = sale.receiptNumber;
+    generateReceiptPdf(sale)
+      .then(doc => {
+        pdfDocRef.current = doc;
+        setPdfReady(true);
+        setPdfError(false);
+      })
+      .catch(() => {
+        // Keep the Download button functional; it will regenerate on click.
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sale?.receiptNumber]);
 
   if (!sale) return null;
@@ -136,8 +335,8 @@ Murakoze cyane kubana natwe! / Thank you for shopping with us!`;
     }
   };
 
-  // Action 2: Download PDF Receipt (Direct 80mm Thermal / A4 via jsPDF)
-  const handleDownloadPdf = () => {
+  // Action 2: Download PDF Receipt (reuses the pre-warmed jsPDF doc instantly)
+  const handleDownloadPdf = async () => {
     if (isGeneratingPdf) return;
 
     const downloadName = `SmartStock-Invoice-${sale.receiptNumber}.pdf`;
@@ -159,153 +358,9 @@ Murakoze cyane kubana natwe! / Thank you for shopping with us!`;
     }, 10000);
 
     try {
-      // 80mm roll thermal standard dimensions
-      const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: [80, 215]
-      });
-
-      const pageWidth = 80;
-      let y = 8;
-
-      // Header
-      doc.setFont('courier', 'bold');
-      doc.setFontSize(10.5);
-      doc.text('SMARTSTOCK RWANDA', pageWidth / 2, y, { align: 'center' });
-      y += 4.5;
-      doc.setFontSize(9);
-      doc.text('MUGABO SUPERMARKET', pageWidth / 2, y, { align: 'center' });
-      y += 3.8;
-      doc.setFont('courier', 'normal');
-      doc.setFontSize(7);
-      doc.text('Nyamirambo Commercial Ave, Kigali', pageWidth / 2, y, { align: 'center' });
-      y += 3.2;
-      doc.text('Tel: +250 788 123 456', pageWidth / 2, y, { align: 'center' });
-      y += 3.8;
-      doc.text('------------------------------------------', pageWidth / 2, y, { align: 'center' });
-      y += 4;
-
-      // RRA Fiscal Details
-      doc.setFont('courier', 'bold');
-      doc.setFontSize(7.5);
-      doc.text('OFFICIAL RRA FISCAL RECEIPT', pageWidth / 2, y, { align: 'center' });
-      y += 3.8;
-      doc.setFont('courier', 'normal');
-      doc.setFontSize(6.8);
-      doc.text(`TIN: ${rra?.tin || '108392019'}   BHF: ${rra?.bhfId || '00'}`, 5, y);
-      y += 3.2;
-      doc.text(`SDC ID: ${rra?.sdcId || 'SDC-RRA-KGL-0492'}`, 5, y);
-      y += 3.2;
-      doc.text(`CIS ID: ${rra?.cisId || 'CIS-SMARTSTOCK-RW-01'}`, 5, y);
-      y += 3.2;
-      doc.text(`SDC Receipt: ${rra?.sdcReceiptNumber || 'SDC/0492/2026/00103'}`, 5, y);
-      y += 3.2;
-      doc.text(`Internal #: ${sale.receiptNumber}`, 5, y);
-      y += 3.2;
-      doc.text(`Date & Time: ${new Date(sale.timestamp).toLocaleString('en-GB')}`, 5, y);
-      y += 3.2;
-      doc.text(`Cashier: ${sale.cashierName}`, 5, y);
-      y += 3.8;
-      doc.text('------------------------------------------', pageWidth / 2, y, { align: 'center' });
-      y += 4;
-
-      // Itemized Table Header
-      doc.setFont('courier', 'bold');
-      doc.setFontSize(7);
-      doc.text('ITEM', 5, y);
-      doc.text('QTY x PRICE', 42, y);
-      doc.text('TOTAL', 75, y, { align: 'right' });
-      y += 3.5;
-      doc.setFont('courier', 'normal');
-
-      // Itemized rows
-      sale.items.forEach((item) => {
-        if (y > 195) {
-          doc.addPage([80, 215]);
-          y = 8;
-        }
-        const cleanName = item.productName.length > 20 
-          ? item.productName.substring(0, 19) + '..' 
-          : item.productName;
-        doc.text(`${cleanName} ${item.isVatApplicable ? '(A)' : '(B)'}`, 5, y);
-        y += 3.2;
-        doc.text(`  ${item.quantity} x ${item.unitPriceRwf.toLocaleString()}`, 5, y);
-        doc.text(`${item.totalRwf.toLocaleString()} RWF`, 75, y, { align: 'right' });
-        y += 3.8;
-      });
-
-      doc.text('------------------------------------------', pageWidth / 2, y, { align: 'center' });
-      y += 4;
-
-      // 18% VAT Tax Breakdown
-      doc.setFont('courier', 'bold');
-      doc.text('TAX BREAKDOWN', 5, y);
-      y += 3.2;
-      doc.setFont('courier', 'normal');
-      doc.text('A: Standard 18% VAT', 5, y);
-      y += 3.2;
-      doc.text(`   Taxable Base: ${taxableAmount.toLocaleString()} RWF`, 5, y);
-      y += 3.2;
-      doc.text(`   18% VAT Amount: ${vatAmount.toLocaleString()} RWF`, 5, y);
-      y += 3.8;
-
-      if ((rra?.taxExemptAmountB || 0) > 0) {
-        doc.text(`B: Exempt 0%: ${(rra?.taxExemptAmountB || 0).toLocaleString()} RWF`, 5, y);
-        y += 3.5;
-      }
-
-      // Grand Total
-      doc.setFont('courier', 'bold');
-      doc.setFontSize(8.5);
-      doc.text('TOTAL INCL. VAT:', 5, y);
-      doc.text(`${sale.totalRwf.toLocaleString()} RWF`, 75, y, { align: 'right' });
-      y += 4.2;
-
-      // Payment Breakdown
-      doc.setFont('courier', 'normal');
-      doc.setFontSize(6.8);
-      const modeLabel = sale.paymentMethod === 'MOMO_MTN' ? 'MTN Mobile Money' : sale.paymentMethod === 'AIRTEL_MONEY' ? 'Airtel Money' : sale.paymentMethod === 'CREDIT' ? 'Kwikopesha / Credit Sale' : 'Cash in Hand';
-      doc.text(`Payment: ${modeLabel}`, 5, y);
-      y += 3.2;
-
-      if (sale.paymentMethod === 'CREDIT') {
-        doc.text(`Debtor: ${sale.customerName || 'Registered Debtor'}`, 5, y);
-        y += 3.2;
-        if (sale.customerPhone) {
-          doc.text(`Phone: ${sale.customerPhone}`, 5, y);
-          y += 3.2;
-        }
-        doc.text(`Status: UNPAID (Logged in Debtors DB)`, 5, y);
-        y += 3.8;
-      } else if (sale.paymentMethod === 'CASH') {
-        doc.text(`Cash Tendered: ${sale.cashTenderedRwf.toLocaleString()} RWF`, 5, y);
-        y += 3.2;
-        doc.text(`Change Returned: ${sale.changeGivenRwf.toLocaleString()} RWF`, 5, y);
-        y += 3.8;
-      } else if (sale.momoReference) {
-        doc.text(`MoMo Ref: ${sale.momoReference}`, 5, y);
-        y += 3.8;
-      }
-
-      doc.text('------------------------------------------', pageWidth / 2, y, { align: 'center' });
-      y += 4;
-
-      // SDC Signature & Verification
-      doc.setFontSize(6.5);
-      doc.text(`SDC Signature: ${rra?.receiptSignature || 'RRA-8F2B-91A4-32DE'}`, 5, y);
-      y += 3.2;
-      doc.text(`Counter: #${rra?.globalReceiptCounter || 103}`, 5, y);
-      y += 3.2;
-      doc.text(`Verify URL: ${rra?.qrVerificationUrl || 'https://ebm.rra.gov.rw/verify'}`, 5, y);
-      y += 4.5;
-      doc.setFont('courier', 'bold');
-      doc.setFontSize(7.5);
-      doc.text('Murakoze Cyane / Thank You!', pageWidth / 2, y, { align: 'center' });
-
-      // Save PDF
-      doc.save(downloadName);
+      const doc = await generateReceiptPdf(sale);
       pdfDocRef.current = doc;
+      doc.save(downloadName);
       setPdfReady(true);
       setPdfError(false);
     } catch (err) {
@@ -317,15 +372,6 @@ Murakoze cyane kubana natwe! / Thank you for shopping with us!`;
       setIsGeneratingPdf(false);
     }
   };
-
-  // Auto-generate and download the PDF when a new sale receipt opens
-  useEffect(() => {
-    if (!pdfDocRef.current && sale && sale.receiptNumber !== autoDownloadedForRef.current) {
-      autoDownloadedForRef.current = sale.receiptNumber;
-      handleDownloadPdf();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sale?.receiptNumber]);
 
   // Action 3: Print Thermal Receipt (Triggers standard window.print formatted for 80mm roll)
   const handlePrintThermal = () => {

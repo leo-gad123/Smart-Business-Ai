@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { User, UserRole, ShiftType, EmployeeContract, StaffShiftRecord } from '../../../types';
 import { db } from '../../../services/db';
-import jsPDF from 'jspdf';
 
 interface Card2EmployeeShiftModalProps {
   currentUser: User;
@@ -202,13 +201,14 @@ export const Card2EmployeeShiftModal: React.FC<Card2EmployeeShiftModalProps> = (
     setTimeout(() => setSmsSentNotice(false), 3000);
   };
 
-  // Generate Official Rwanda Labor Contract PDF using jsPDF
-  const handleGenerateRwandaContractPDF = (contractTargetUser?: User) => {
+  // Generate Official Rwanda Labor Contract PDF using jsPDF (lazy-loaded for speed)
+  const handleGenerateRwandaContractPDF = async (contractTargetUser?: User) => {
     const targetUser = contractTargetUser || allUsers.find(u => u.id === selectedStaffForContract) || allUsers[0];
     if (!targetUser) return;
 
     try {
-      const doc = new jsPDF();
+      const { default: jsPDF } = await import('jspdf');
+      const doc = new jsPDF({ compress: true });
 
       // Header & Emblem
       doc.setFont('helvetica', 'bold');
