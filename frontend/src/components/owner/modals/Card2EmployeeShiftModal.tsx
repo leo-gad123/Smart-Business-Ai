@@ -63,6 +63,7 @@ export const Card2EmployeeShiftModal: React.FC<Card2EmployeeShiftModalProps> = (
   const [generatedCredentials, setGeneratedCredentials] = useState<{
     name: string;
     phone: string;
+    email: string;
     role: string;
     pin: string;
     password: string;
@@ -101,6 +102,14 @@ export const Card2EmployeeShiftModal: React.FC<Card2EmployeeShiftModalProps> = (
       alert('Injiza izina n\'inimeri ya telefone by\'umukozi.');
       return;
     }
+    if (!empEmail.trim().includes('@') || !empEmail.trim().includes('.')) {
+      alert('Injiza imeri y\'umukozi (email) — izakoreshwa mu kwinjira muri sisitemu.');
+      return;
+    }
+    if (empPassword.trim() && empPassword.trim().length < 6) {
+      alert('Ijambobanga (password) rigomba kuba rifite nibura inyuguti 6.');
+      return;
+    }
 
     const autoPassword = empPassword.trim() || `Rwanda@${Math.floor(1000 + Math.random() * 9000)}`;
     const autoPin = empPin.trim() || String(Math.floor(1000 + Math.random() * 9000));
@@ -109,10 +118,11 @@ export const Card2EmployeeShiftModal: React.FC<Card2EmployeeShiftModalProps> = (
       id: `usr-${Date.now()}`,
       name: empName.trim(),
       phone: empPhone.trim(),
-      email: empEmail.trim() || `${empName.toLowerCase().replace(/\s+/g, '.')}@shop.rw`,
+      email: empEmail.trim().toLowerCase(),
       role: empRole,
       shiftType: empShift,
       pin: autoPin,
+      systemPassword: autoPassword,
       shopName: currentUser.shopName,
       active: true,
       cvFileName: empCvFile?.name,
@@ -141,6 +151,7 @@ export const Card2EmployeeShiftModal: React.FC<Card2EmployeeShiftModalProps> = (
     setGeneratedCredentials({
       name: newUser.name,
       phone: newUser.phone,
+      email: newUser.email || '',
       role: newUser.role === 'owner' ? 'Owner / Manager' : 'Cashier / Employee',
       pin: autoPin,
       password: autoPassword
@@ -179,7 +190,7 @@ export const Card2EmployeeShiftModal: React.FC<Card2EmployeeShiftModalProps> = (
   // Copy Credentials
   const handleCopyCredentials = () => {
     if (!generatedCredentials) return;
-    const text = `SmartStock Rwanda Credentials:\nShop: ${currentUser.shopName}\nName: ${generatedCredentials.name}\nRole: ${generatedCredentials.role}\nPOS Quick PIN: ${generatedCredentials.pin}\nPassword: ${generatedCredentials.password}\nLogin at: https://smartstock.rw`;
+    const text = `SmartStock Rwanda Credentials:\nShop: ${currentUser.shopName}\nName: ${generatedCredentials.name}\nRole: ${generatedCredentials.role}\nEmail: ${generatedCredentials.email}\nPassword: ${generatedCredentials.password}\nPOS Quick PIN: ${generatedCredentials.pin}\nLogin at: https://smartstock.rw`;
     navigator.clipboard.writeText(text);
     setCopiedNotice(true);
     setTimeout(() => setCopiedNotice(false), 2500);
@@ -533,7 +544,7 @@ export const Card2EmployeeShiftModal: React.FC<Card2EmployeeShiftModalProps> = (
                 </div>
 
                 <form onSubmit={handleRegisterEmployee} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-semibold text-slate-300 block mb-1">
                         Amazina Yose (Full Name) <span className="text-purple-400">*</span>
@@ -564,13 +575,27 @@ export const Card2EmployeeShiftModal: React.FC<Card2EmployeeShiftModalProps> = (
 
                     <div>
                       <label className="text-xs font-semibold text-slate-300 block mb-1">
-                        Imeri (Email Optional)
+                        Imeri ya Login (Email) <span className="text-purple-400">*</span>
                       </label>
                       <input
                         type="email"
+                        required
                         placeholder="diane@shop.rw"
                         value={empEmail}
                         onChange={(e) => setEmpEmail(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-300 block mb-1">
+                        Ijambobanga (Login Password) <span className="text-purple-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="nibura inyuguti 6 (urugero: Dana123)"
+                        value={empPassword}
+                        onChange={(e) => setEmpPassword(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none"
                       />
                     </div>
